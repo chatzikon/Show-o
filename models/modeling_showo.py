@@ -43,7 +43,7 @@ class Showo(ModelMixin, ConfigMixin):
             self.showo = PhiForCausalLM(config)
         else:
             self.showo = PhiForCausalLM.from_pretrained(llm_model_path, attn_implementation='sdpa')
-        self.showo.resize_token_embeddings(self.vocab_size)
+        self.showo.resize_token_embeddings(self.vocab_size, mean_resizing=False)
         self.output_size = self.vocab_size
 
         if self.w_clip_vit:

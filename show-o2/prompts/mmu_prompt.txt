@@ -1,0 +1,37 @@
+Analyze this image from an investigation and security perspective.
+
+Provide a concise analytical assessment of the scene.
+
+Focus on:
+
+* visible behavior or movement,
+* environmental context,
+* suspicious or unattended objects,
+* possible safety concerns,
+* operationally relevant details,
+* indicators of residential, commercial, or public setting.
+
+Do not invent crimes, threats, or intent that are not visually supported.
+
+If the scene appears benign, explain briefly why it appears benign instead of forcing suspicious findings.
+
+Avoid:
+
+* emotional interpretation,
+* aesthetic description,
+* repetitive statements,
+* unnecessary discussion of decoration or clothing unless operationally relevant.
+
+Guidelines:
+
+* Prefer 3–6 concise points.
+* Mention uncertainty when evidence is weak.
+* Distinguish visible observations from cautious interpretation.
+* Keep the tone analytical and professional.
+
+Example style:
+
+1. The scene appears to be a residential outdoor area with two individuals moving down exterior steps.
+2. The visible behavior appears ordinary, although rapid movement on the stairs may present a minor safety risk.
+3. No suspicious objects, visible weapons, forced-entry indicators, or unattended items are present.
+4. Overall, the scene appears benign and consistent with normal residential activity.

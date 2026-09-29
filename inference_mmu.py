@@ -29,9 +29,16 @@ from transformers import CLIPImageProcessor
 from llava.llava import conversation as conversation_lib
 
 conversation_lib.default_conversation = conversation_lib.conv_templates["phi1.5"]
-SYSTEM_PROMPT = "A chat between a curious user and an artificial intelligence assistant. " \
-                "The assistant gives helpful, detailed, and polite answers to the user's questions."
+# SYSTEM_PROMPT = "A chat between a curious user and an artificial intelligence assistant. " \
+#                 "The assistant gives helpful, detailed, and polite answers to the user's questions."
 SYSTEM_PROMPT_LEN = 28
+
+SYSTEM_PROMPT = (
+    "You are a visual investigation assistant. "
+    "Carefully inspect the image, report visible evidence accurately, "
+    "and distinguish observations from possible investigative interpretations."
+)
+
 
 def get_vq_model_class(model_type):
     if model_type == "magvitv2":
@@ -42,6 +49,11 @@ def get_vq_model_class(model_type):
 if __name__ == '__main__':
 
     config = get_config()
+
+    prompt_file = "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/prompts/mmu_prompt.txt"
+
+    with open(prompt_file, "r", encoding="utf-8") as f:
+        config.question = [f.read().strip()]
 
     resume_wandb_run = config.wandb.resume
     run_id = config.wandb.get("run_id", None)
@@ -80,10 +92,11 @@ if __name__ == '__main__':
     temperature = 0.8  # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
     top_k = 1  # retain only the top_k most likely tokens, clamp others to have 0 probability
 
-    file_list = os.listdir(config.mmu_image_root)
+    #file_list = os.listdir(config.mmu_image_root)
+    file_list = ["images.jpg"]
     responses = ['' for i in range(len(file_list))]
     images = []
-    config.question = config.question.split(' *** ')
+    #config.question = config.question.split(' *** ')
     for i, file_name in enumerate(tqdm(file_list)):
         image_path = os.path.join(config.mmu_image_root, file_name)
         image_ori = Image.open(image_path).convert("RGB")
@@ -108,9 +121,17 @@ if __name__ == '__main__':
                 input_ids_system = [uni_prompting.text_tokenizer(SYSTEM_PROMPT, return_tensors="pt", padding="longest").input_ids
                                         for _ in range(batch_size)]
                 input_ids_system = torch.stack(input_ids_system, dim=0)
-                assert input_ids_system.shape[-1] == 28
+                #assert input_ids_system.shape[-1] == 28
+                SYSTEM_PROMPT_LEN = input_ids_system.shape[-1]
                 input_ids_system = input_ids_system.to(device)
                 input_ids_system = input_ids_system[0]
+
+                print("\n========== PROMPT SENT TO PHI ==========")
+                print(prompt_question)
+                print("========================================")
+
+                tmp = uni_prompting.text_tokenizer(prompt_question)
+                print("Prompt tokens:", len(tmp.input_ids))
 
                 input_ids = [uni_prompting.text_tokenizer(prompt, return_tensors="pt", padding="longest").input_ids
                                 for prompt in question_input]

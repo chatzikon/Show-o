@@ -20,7 +20,7 @@ from einops import rearrange
 from transformers import AutoConfig
 from torch.nn.attention.flex_attention import BlockMask
 from .misc import velocity_prediction, next_token_prediction, interpolate_pos_encoding
-from .modeling_siglip import SiglipModel
+from .modeling_siglip import SiglipModel, SiglipVisionModel
 from .modeling_utils import ConfigMixin, ModelMixin, register_to_config
 from .modules import DiffusionHeadConfig
 from .modules import ModulatedAttentionBlock, RMSNorm, PatchEmbed, TimestepEmbedder, FinalLayer
@@ -36,6 +36,8 @@ class Showo2Qwen2_5(ModelMixin, ConfigMixin):
             llm_vocab_size=None,
             llm_model_path='',
             load_from_showo=False,
+            load_llm=True,
+            load_siglip_pretrained=True,  # <-- ADD
             image_latent_dim=16,
             image_latent_height=16,
             image_latent_width=16,
@@ -52,12 +54,37 @@ class Showo2Qwen2_5(ModelMixin, ConfigMixin):
     ):
         super().__init__()
 
-        llm_config = AutoConfig.from_pretrained(llm_model_path)
-        if load_from_showo:
-            self.showo = Qwen2ForCausalLM(llm_config)
+
+        if load_llm:
+            llm_config = AutoConfig.from_pretrained(llm_model_path)
+
+            # ---------------------------------------------------------
+            # Compatibility with newer Transformers
+            # Show-o2's custom qwen2.py expects the legacy attributes
+            # rope_theta and rope_scaling.
+            # ---------------------------------------------------------
+            if not hasattr(llm_config, "rope_theta"):
+                rope_params = getattr(llm_config, "rope_parameters", None) or {}
+                llm_config.rope_theta = rope_params.get("rope_theta", 1_000_000.0)
+
+            if not hasattr(llm_config, "rope_scaling"):
+                llm_config.rope_scaling = None
+
+            if load_from_showo:
+                self.showo = Qwen2ForCausalLM(llm_config)
+            else:
+                self.showo = Qwen2ForCausalLM.from_pretrained(
+                    llm_model_path,
+                    attn_implementation="sdpa",
+                )
+
+            self.showo.resize_token_embeddings(llm_vocab_size)
+
         else:
-            self.showo = Qwen2ForCausalLM.from_pretrained(llm_model_path, attn_implementation='sdpa')
-        self.showo.resize_token_embeddings(llm_vocab_size)
+            # Visual-only mode.
+            # We do not need Show-o2's Qwen language model
+            # for Show-o2 -> Qwen3-VL feature alignment.
+            self.showo = None
 
         # patch embedding layer for semantic layers
         self.image_embedder_und = PatchEmbed(
@@ -73,11 +100,50 @@ class Showo2Qwen2_5(ModelMixin, ConfigMixin):
             embed_dim=hidden_size,
         )
 
-        # initialize semantic layers from siglip
-        siglip_model = SiglipModel.from_pretrained(clip_pretrained_model_path)
-        self.position_embedding = siglip_model.vision_model.embeddings.position_embedding
-        self.und_trans = siglip_model.vision_model.encoder
+        # ---------------------------------------------------------
+        # Build semantic layers
+        # ---------------------------------------------------------
+
+        if load_siglip_pretrained:
+
+            # Original Show-o2 behavior
+            siglip_model = SiglipModel.from_pretrained(
+                clip_pretrained_model_path
+            )
+
+        else:
+
+            # Visual-only checkpoint loading:
+            # instantiate the architecture without loading the
+            # original SigLIP weights. The Show-o2 checkpoint will
+            # subsequently load its own trained weights into these modules.
+            siglip_config = AutoConfig.from_pretrained(
+                clip_pretrained_model_path
+            )
+
+            siglip_model = SiglipVisionModel(
+                siglip_config.vision_config
+            )
+
+        self.position_embedding = (
+            siglip_model
+            .vision_model
+            .embeddings
+            .position_embedding
+        )
+
+        self.und_trans = (
+            siglip_model
+            .vision_model
+            .encoder
+        )
+
+        # Show-o2 removes the final SigLIP layer
         del self.und_trans.layers[-1]
+
+        del siglip_model
+
+
         self.register_buffer("image_position_ids",
                              torch.arange(image_latent_height * image_latent_width).expand((1, -1)),
                              persistent=False)
@@ -537,6 +603,10 @@ class Showo2Qwen2_5(ModelMixin, ConfigMixin):
             # logits, _ = self(idx_cond)
             logits = self.showo(inputs_embeds=input_embeds, attention_mask=attention_mask.to(dtype))['logits']
 
+
+
+
+
             L = attention_mask.shape[-1]
             attention_mask = attention_mask.squeeze()
             attention_mask_a = torch.hstack(
@@ -552,6 +622,9 @@ class Showo2Qwen2_5(ModelMixin, ConfigMixin):
                 ]
             )
             attention_mask = attention_mask_b
+
+
+
 
             # pluck the logits at the final step and scale by desired temperature
             logits = logits[:, -1, :] / temperature

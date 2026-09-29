@@ -27,9 +27,6 @@ from torch.nn.attention.flex_attention import flex_attention, create_block_mask
 from datasets.utils import image_transform, resize_and_pad_image, to_tensor_and_normalize
 # set_seed(10)
 
-import gc
-from models.qwen2 import Qwen2ForCausalLM
-
 logger = get_logger(__name__, log_level="INFO")
 
 if __name__ == '__main__':
@@ -76,44 +73,6 @@ if __name__ == '__main__':
         state_dict = load_state_dict(config.model_path)
         model.load_state_dict(state_dict)
 
-    # from models.modeling_siglip import SiglipModel
-    #
-    #
-    # # Reload original pretrained SigLIP
-    # siglip_model = SiglipModel.from_pretrained(
-    #     config.model.showo.clip_pretrained_model_path
-    # )
-    #
-    # model.position_embedding = (
-    #     siglip_model.vision_model.embeddings.position_embedding
-    # )
-    #
-    # model.und_trans = siglip_model.vision_model.encoder
-    #
-    # # Show-o2 removes the last SigLIP encoder layer
-    # del model.und_trans.layers[-1]
-    #
-    # del siglip_model
-    #
-    # # Remove the Qwen weights contained in the Show-o2 checkpoint
-    # del model.showo
-    # gc.collect()
-    #
-    #
-    # # Replace them with untouched Qwen2.5-Instruct
-    # model.showo = Qwen2ForCausalLM.from_pretrained(
-    #     config.model.showo.llm_model_path,
-    #     attn_implementation="sdpa",
-    #     torch_dtype=weight_type,
-    # )
-    #
-    # # tokenizer has Show-o2-added tokens
-    # model.showo.resize_token_embeddings(len(text_tokenizer))
-    #
-    # model = model.to(device)
-
-
-
     model.to(weight_type)
     model.eval()
 
@@ -157,7 +116,7 @@ if __name__ == '__main__':
         image = image_transform(image_ori, resolution=config.dataset.preprocessing.resolution).to(device)
         image = image.unsqueeze(0)
 
-        image_latents = vae_model.sample(image.unsqueeze(2), deterministic=True).squeeze(2).to(weight_type)
+        image_latents = vae_model.sample(image.unsqueeze(2)).squeeze(2).to(weight_type)
 
         image_embeds_und = model.image_embedder_und(image_latents)
         image_embeds_gen = model.image_embedder_gen(image_latents)
@@ -167,6 +126,7 @@ if __name__ == '__main__':
 
         image_embeds = model.fusion_proj(torch.cat([image_embeds_und, image_embeds_gen], dim=-1))
 
+        image_embeds = torch.zeros_like(image_embeds)
 
         batch_size = 1
         responses = ['' for j in range(len(file_list))]
@@ -177,34 +137,22 @@ if __name__ == '__main__':
             input_ids = text_tokenizer(question, add_special_tokens=False).input_ids
 
 
-
-
             text_tokens_a = torch.tensor([showo_token_ids['bos_id']] + sys_prompt_ids + role_a).to(device)[None, :]
-
-
             text_tokens_b = torch.tensor([showo_token_ids['boi_id'], showo_token_ids['eoi_id']] + input_ids + role_b).to(device)[None, :]
-
-
             text_embeds_a = model.showo.model.embed_tokens(text_tokens_a)
             text_embeds_b = model.showo.model.embed_tokens(text_tokens_b)
-
-
 
             if config.model.showo.add_time_embeds:
                 time_embeds = model.time_embed(torch.Tensor([[1.0]]).to(device), text_embeds_a.dtype)
                 if hasattr(model, 'time_embed_proj'):
                     time_embeds = model.time_embed_proj(time_embeds)
-
-                    # Real multimodal sequence:
-                    # text -> BOI -> time -> image -> EOI -> prompt -> assistant
-                    input_embeds = torch.cat([
-                        text_embeds_a,
-                        text_embeds_b[:, :1],
-                        time_embeds,
-                        image_embeds,
-                        text_embeds_b[:, 1:]
-                    ], dim=1).to(weight_type)
-
+                input_embeds = torch.cat([
+                    text_embeds_a,
+                    text_embeds_b[:, :1],
+                    time_embeds,
+                    image_embeds,
+                    text_embeds_b[:, 1:]
+                ], dim=1).to(weight_type)
                 modality_positions = torch.tensor([text_tokens_a.shape[1] + 2, num_mmu_image_tokens])[None, None, :].to(device)
             else:
                 input_embeds = torch.cat([
