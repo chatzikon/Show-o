@@ -1,7 +1,8 @@
-./show-o2/showo2_qwen3_adapter_stage1
-./show-o2/showo2_qwen3_adapter_stage2_ucf
-./show-o2/results
-./show-o2/wandb
-./show-o2/Wan2.1_VAE.pth
+show-o2/showo2_qwen3_adapter_stage1
+show-o2/showo2_qwen3_adapter_stage2_ucf
+show-o2/results
+show-o2/wandb
+show-o2/Wan2.1_VAE.pth
+wandb
 __pycache__/
 *.pyc
