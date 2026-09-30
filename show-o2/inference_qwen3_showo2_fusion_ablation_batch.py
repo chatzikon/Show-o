@@ -1446,7 +1446,8 @@ def main():
     parser.add_argument(
         "--image",
         #default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split',
-        default='/home/chatziko/PycharmProjects/PythonProject/test_images_showo2',
+        #default='/home/chatziko/PycharmProjects/PythonProject/test_images_showo2',
+        default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCF Image Dataset/UCF Image Dataset',
         type=str,
         help=(
             "Path to one image OR a folder containing images. "
@@ -1466,7 +1467,7 @@ def main():
 
     parser.add_argument(
         "--output",
-        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ablation_results',
+        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ablation_results/UCF_init',
         type=str,
         help=(
             "Single-run: exact output JSON path, preserving the "
