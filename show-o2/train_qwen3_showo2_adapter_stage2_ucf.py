@@ -679,4 +679,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    from fusion_version import run_fusion_version
+
+    run_fusion_version(
+        v1_main=main,
+        v2_module="train_qwen3_showo2_deepstack",
+        stage=2,
+    )

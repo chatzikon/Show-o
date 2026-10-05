@@ -41,7 +41,7 @@ QWEN3_MODEL = "Qwen/Qwen3-VL-4B-Instruct"
 
 WAN_VAE_PATH = "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/Wan2.1_VAE.pth"
 
-OUTPUT_DIR = "./showo2_qwen3_adapter_stage1"
+OUTPUT_DIR = "./showo2_qwen3_adapter_stage1_v2"
 
 SHOWO_SIZE = 432
 QWEN_SIZE = 448
@@ -791,4 +791,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    from fusion_version import run_fusion_version
+
+    run_fusion_version(
+        v1_main=main,
+        v2_module="train_qwen3_showo2_deepstack",
+        stage=1,
+    )

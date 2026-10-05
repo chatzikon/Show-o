@@ -442,80 +442,251 @@ def iter_prediction_records(path: Path) -> Iterator[dict]:
             print(f"[WARN] Skipping {p}: {e}", file=sys.stderr)
 
 
+def split_reference_captions(value) -> List[str]:
+    """
+    UCF annotation format:
+        caption 1 | caption 2 | caption 3 | ...
+
+    Also accepts a list for future compatibility.
+    """
+    if value is None:
+        return []
+
+    if isinstance(value, (list, tuple)):
+        parts = value
+    else:
+        parts = str(value).split("|")
+
+    return [
+        clean_text(x)
+        for x in parts
+        if clean_text(x)
+    ]
+
+
 def iter_reference_rows(path: Path) -> Iterator[dict]:
     """
-    More permissive loader for PaliGemma pseudo-reference files.
+    Load reference captions.
+
+    Supports both:
+
+    1) Old one-caption-per-row format:
+       image, caption
+
+    2) UCF format:
+       image_name, category, ref_captions, color_type
+
+       where ref_captions contains:
+           caption 1 | caption 2 | caption 3 | ...
     """
+
     files = prediction_files(path)
+
     if not files:
-        raise FileNotFoundError(f"No JSON/JSONL/CSV reference files found in {path}")
+        raise FileNotFoundError(
+            f"No JSON/JSONL/CSV reference files found in {path}"
+        )
 
     for p in files:
         try:
+
             if p.suffix.lower() == ".json":
                 with p.open("r", encoding="utf-8") as f:
                     data = json.load(f)
-                rows = data if isinstance(data, list) else [data]
+
+                rows = (
+                    data
+                    if isinstance(data, list)
+                    else [data]
+                )
+
             elif p.suffix.lower() == ".jsonl":
                 rows = []
+
                 with p.open("r", encoding="utf-8") as f:
                     for line in f:
                         if line.strip():
-                            rows.append(json.loads(line))
+                            rows.append(
+                                json.loads(line)
+                            )
+
             elif p.suffix.lower() == ".csv":
-                with p.open("r", encoding="utf-8-sig", newline="") as f:
-                    rows = list(csv.DictReader(f))
+                with p.open(
+                    "r",
+                    encoding="utf-8-sig",
+                    newline="",
+                ) as f:
+                    rows = list(
+                        csv.DictReader(f)
+                    )
+
             else:
                 continue
 
             for row in rows:
+
                 if not isinstance(row, dict):
                     continue
-                image = first_value(row, IMAGE_KEYS)
-                caption = first_value(row, REF_TEXT_KEYS)
-                if image is not None and caption is not None:
+
+                image = first_value(
+                    row,
+                    IMAGE_KEYS,
+                )
+
+                if image is None:
+                    continue
+
+                # ---------------------------------------------
+                # New UCF format
+                # ---------------------------------------------
+                if row.get("ref_captions") not in (
+                    None,
+                    "",
+                ):
+                    captions = split_reference_captions(
+                        row["ref_captions"]
+                    )
+
+                # ---------------------------------------------
+                # Old single-reference format
+                # ---------------------------------------------
+                else:
+                    caption = first_value(
+                        row,
+                        REF_TEXT_KEYS,
+                    )
+
+                    captions = (
+                        [clean_text(caption)]
+                        if caption is not None
+                        else []
+                    )
+
+                n_refs = len(captions)
+
+                for ref_index, caption in enumerate(
+                    captions,
+                    start=1,
+                ):
                     yield {
                         "image": str(image),
-                        "caption": clean_text(caption),
+                        "caption": caption,
+
+                        # Useful for checking the expansion.
+                        "reference_index": ref_index,
+                        "reference_count": n_refs,
+
+                        # Preserve UCF metadata.
+                        "category": clean_text(
+                            row.get("category", "")
+                        ),
+                        "color_type": clean_text(
+                            row.get("color_type", "")
+                        ),
                     }
+
         except Exception as e:
-            print(f"[WARN] Skipping reference file {p}: {e}", file=sys.stderr)
+            print(
+                f"[WARN] Skipping reference file {p}: {e}",
+                file=sys.stderr,
+            )
 
 
 class ReferenceIndex:
-    def __init__(self, rows: Iterable[dict]):
-        self.exact: Dict[str, str] = {}
-        basename_values: Dict[str, set] = defaultdict(set)
+    """
+    One image -> LIST of reference captions.
+    """
+
+    def __init__(
+        self,
+        rows: Iterable[dict],
+    ):
+        self.exact: Dict[str, List[dict]] = defaultdict(list)
+
+        # basename -> set of actual image keys.
+        #
+        # Important:
+        # multiple captions for ONE image must NOT make the
+        # basename ambiguous.
+        basename_keys: Dict[str, set] = defaultdict(set)
 
         for row in rows:
+
             image = row["image"]
-            caption = row["caption"]
-            self.exact[normalize_path_string(image)] = caption
-            basename_values[canonical_basename(image)].add(caption)
 
-        self.basename_unique = {
-            k: next(iter(v))
-            for k, v in basename_values.items()
-            if len(v) == 1
+            key = normalize_path_string(
+                image
+            )
+
+            self.exact[key].append(
+                row
+            )
+
+            basename_keys[
+                canonical_basename(image)
+            ].add(key)
+
+        # A basename is safe for fallback if it corresponds
+        # to exactly one image, regardless of how many captions
+        # that image has.
+        self.basename_to_key = {
+            basename: next(iter(keys))
+            for basename, keys in basename_keys.items()
+            if len(keys) == 1
         }
+
         self.ambiguous_basenames = {
-            k for k, v in basename_values.items() if len(v) > 1
+            basename
+            for basename, keys in basename_keys.items()
+            if len(keys) > 1
         }
 
-    def get(self, image: str) -> Optional[str]:
-        exact = self.exact.get(normalize_path_string(image))
+    def get_all(
+        self,
+        image: str,
+    ) -> List[dict]:
+
+        key = normalize_path_string(
+            image
+        )
+
+        exact = self.exact.get(
+            key
+        )
+
         if exact is not None:
             return exact
-        return self.basename_unique.get(canonical_basename(image))
 
+        basename = canonical_basename(
+            image
+        )
+
+        fallback_key = self.basename_to_key.get(
+            basename
+        )
+
+        if fallback_key is None:
+            return []
+
+        return self.exact.get(
+            fallback_key,
+            [],
+        )
 
 
 class NullReferenceIndex:
     """Reference lookup used when BERTScore is disabled."""
+
     ambiguous_basenames = set()
 
-    def get(self, image: str) -> Optional[str]:
-        return None
+    def get_all(
+        self,
+        image: str,
+    ) -> List[dict]:
+        return []
+
+
+
 
 
 class ImageResolver:
@@ -1357,9 +1528,10 @@ def write_clip_pass(
             desc="CLIPScore",
             unit="batch",
         ):
-            # Attach PaliGemma reference before scoring.
             valid_batch = []
+
             for r in batch:
+
                 counters["prediction_rows"] += 1
 
                 if not r["generated_text"]:
@@ -1370,28 +1542,130 @@ def write_clip_pass(
                     counters["missing_observation"] += 1
                     continue
 
-                ref = ref_index.get(r["image"])
-                if ref is None:
-                    counters["missing_paligemma_reference"] += 1
+                refs = ref_index.get_all(
+                    r["image"]
+                )
+
+                if not refs:
+
+                    counters[
+                        "missing_paligemma_reference"
+                    ] += 1
+
                     if args.require_reference:
                         continue
-                    ref = ""
 
-                r = dict(r)
-                r["paligemma_reference"] = ref
-                valid_batch.append(r)
+                    refs = [
+                        {
+                            "caption": "",
+                            "reference_index": 1,
+                            "reference_count": 0,
+                            "category": "",
+                            "color_type": "",
+                        }
+                    ]
+
+                # Do NOT duplicate the image/Observation here.
+                #
+                # CLIP does not depend on the reference caption, so score
+                # the image/Observation only once and expand afterwards.
+                row = dict(r)
+
+                row["_reference_rows"] = refs
+
+                valid_batch.append(
+                    row
+                )
 
             if not valid_batch:
                 continue
 
             scored = scorer.score_batch(valid_batch, resolver)
-            for row in scored:
-                if row.get("clip_was_truncated"):
-                    counters["clip_truncated"] += 1
-                if row.get("error"):
-                    counters[row["error"]] += 1
-                out_f.write(json.dumps(row, ensure_ascii=False) + "\n")
-                counters["clip_rows_written"] += 1
+            for base_row in scored:
+
+                refs = base_row.pop(
+                    "_reference_rows",
+                    [],
+                )
+
+                if not refs:
+                    refs = [
+                        {
+                            "caption": "",
+                            "reference_index": 1,
+                            "reference_count": 0,
+                            "category": "",
+                            "color_type": "",
+                        }
+                    ]
+
+                # --------------------------------------------------------
+                # Expand:
+                #
+                # image + caption 1
+                # image + caption 2
+                # image + caption 3
+                # ...
+                # --------------------------------------------------------
+                for ref in refs:
+
+                    row = dict(
+                        base_row
+                    )
+
+                    row[
+                        "paligemma_reference"
+                    ] = ref["caption"]
+
+                    row[
+                        "reference_index"
+                    ] = ref.get(
+                        "reference_index"
+                    )
+
+                    row[
+                        "reference_count"
+                    ] = ref.get(
+                        "reference_count"
+                    )
+
+                    row[
+                        "reference_category"
+                    ] = ref.get(
+                        "category",
+                        "",
+                    )
+
+                    row[
+                        "reference_color_type"
+                    ] = ref.get(
+                        "color_type",
+                        "",
+                    )
+
+                    if row.get(
+                            "clip_was_truncated"
+                    ):
+                        counters[
+                            "clip_truncated"
+                        ] += 1
+
+                    if row.get("error"):
+                        counters[
+                            row["error"]
+                        ] += 1
+
+                    out_f.write(
+                        json.dumps(
+                            row,
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+
+                    counters[
+                        "clip_rows_written"
+                    ] += 1
 
     scorer.close()
     return dict(counters)
@@ -1439,44 +1713,110 @@ def write_bert_input_pass(
                     counters["missing_observation"] += 1
                     continue
 
-                ref = ref_index.get(r["image"])
+                refs = ref_index.get_all(
+                    r["image"]
+                )
 
-                if ref is None:
-                    counters["missing_paligemma_reference"] += 1
+                if not refs:
+
+                    counters[
+                        "missing_paligemma_reference"
+                    ] += 1
 
                     if args.require_reference:
                         continue
 
-                    ref = ""
+                    refs = [
+                        {
+                            "caption": "",
+                            "reference_index": 1,
+                            "reference_count": 0,
+                            "category": "",
+                            "color_type": "",
+                        }
+                    ]
 
-                row = dict(r)
+                for ref in refs:
+                    row = dict(r)
 
-                row["paligemma_reference"] = ref
+                    row[
+                        "paligemma_reference"
+                    ] = ref["caption"]
 
-                # These fields normally come from the CLIP pass.
-                # Keep them explicit in BERT-only output so the output schema
-                # remains compatible, while making clear that CLIP was not run.
-                row["resolved_image_path"] = ""
-                row["clip_score"] = math.nan
-                row["clip_token_count"] = math.nan
-                row["clip_was_truncated"] = False
-                row["output_words"] = len(
-                    row["generated_text"].split()
-                )
-                row["observation_words"] = len(
-                    row["observation_text"].split()
-                )
-                row["error"] = ""
-
-                out_f.write(
-                    json.dumps(
-                        row,
-                        ensure_ascii=False,
+                    row[
+                        "reference_index"
+                    ] = ref.get(
+                        "reference_index"
                     )
-                    + "\n"
-                )
 
-                counters["bert_input_rows_written"] += 1
+                    row[
+                        "reference_count"
+                    ] = ref.get(
+                        "reference_count"
+                    )
+
+                    row[
+                        "reference_category"
+                    ] = ref.get(
+                        "category",
+                        "",
+                    )
+
+                    row[
+                        "reference_color_type"
+                    ] = ref.get(
+                        "color_type",
+                        "",
+                    )
+
+                    # No CLIP in BERT-only mode.
+                    row[
+                        "resolved_image_path"
+                    ] = ""
+
+                    row[
+                        "clip_score"
+                    ] = math.nan
+
+                    row[
+                        "clip_token_count"
+                    ] = math.nan
+
+                    row[
+                        "clip_was_truncated"
+                    ] = False
+
+                    row[
+                        "output_words"
+                    ] = len(
+                        row[
+                            "generated_text"
+                        ].split()
+                    )
+
+                    row[
+                        "observation_words"
+                    ] = len(
+                        row[
+                            "observation_text"
+                        ].split()
+                    )
+
+                    row[
+                        "error"
+                    ] = ""
+
+                    out_f.write(
+                        json.dumps(
+                            row,
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+
+
+
+                    counters["bert_input_rows_written"] += 1
 
     return dict(counters)
 
@@ -1602,6 +1942,19 @@ def write_clip_dimension_summary(
     """
 
     df = pd.read_csv(per_sample_csv)
+
+    # Each image/Observation may appear once per reference caption.
+    # CLIP is independent of the reference caption, so keep only
+    # one copy of each actual CLIP evaluation.
+    df = df.drop_duplicates(
+        subset=[
+            "image",
+            "stage",
+            "alpha",
+            "prompt_id",
+            "observation_text",
+        ]
+    )
 
     if "clip_score" not in df.columns:
         raise ValueError(
@@ -1782,7 +2135,13 @@ def bertscore_pass(
         "prompt_text",
         "generated_text",
         "observation_text",
+
+        "reference_index",
+        "reference_count",
+        "reference_category",
+        "reference_color_type",
         "paligemma_reference",
+
         "clip_score",
         "clip_token_count",
         "clip_was_truncated",
@@ -1920,13 +2279,13 @@ def parse_args():
         "--predictions",
         type=Path,
         #required=True,
-        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ablation_results/non_crime',
+        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ablation_results/UCF_init',
         help="Prediction file or directory containing JSON/JSONL/CSV outputs.",
     )
     p.add_argument(
         "--paligemma",
         type=Path,
-        default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split/captions_florence_detailed.jsonl',
+        default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCF Image Dataset/image_category_captions_with_color.csv',
         help=(
             "PaliGemma pseudo-reference file/directory. Required only when "
             "BERTScore is requested."
@@ -1936,7 +2295,7 @@ def parse_args():
         "--metrics",
         nargs="+",
         choices=("clip", "bert"),
-        default=["clip"],
+        default=["clip", "bert"],
         help=(
             "Metrics to run. Examples: '--metrics clip' for image-text score only, "
             "'--metrics bert' for BERTScore only, or '--metrics clip bert' for both."
@@ -1945,14 +2304,14 @@ def parse_args():
     p.add_argument(
         "--image-root",
         type=Path,
-        default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split',
+        default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCF Image Dataset/UCF Image Dataset',
         help="Optional root directory used to resolve image paths/basenames.",
     )
     p.add_argument(
         "--output-dir",
         type=Path,
         #required=True,
-        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/clipbert_jina_nc',
+        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ucf_init',
     )
     p.add_argument(
         "--device",
@@ -1963,7 +2322,7 @@ def parse_args():
     p.add_argument(
         "--clip-backbone",
         choices=("clip", "longclip", "specs", "jina"),
-        default="jina",
+        default="longclip",
         help=(
             "Image-text backbone: "
             "'clip' = standard OpenAI CLIP, "
@@ -2032,13 +2391,13 @@ def parse_args():
     p.add_argument(
         "--clip-text-batch-size",
         type=int,
-        default=2048,
+        default=1024,
         help="Number of generated responses encoded per CLIP text batch.",
     )
     p.add_argument(
         "--clip-image-batch-size",
         type=int,
-        default=1024,
+        default=512,
         help="Number of previously unseen images encoded per CLIP image batch.",
     )
 

@@ -214,6 +214,77 @@ def result_json_is_complete(json_path):
 
 
 
+def find_existing_complete_result(
+    expected_json_path,
+    image_path,
+    prompt_path,
+):
+    """
+    Backward-compatible resume lookup.
+
+    First try the current output filename. If it is not a complete result,
+    search older result files having the same image/prompt stems and accept
+    one only when:
+      - it is a complete alpha sweep,
+      - it refers to the same image, and
+      - the stored prompt TEXT is identical to the current prompt text.
+
+    This lets runs resume after a prompt file is moved to another directory,
+    while still rerunning when the prompt contents actually change.
+    """
+    expected_json_path = Path(expected_json_path)
+
+    if result_json_is_complete(expected_json_path):
+        return expected_json_path
+
+    stage_dir = expected_json_path.parent
+
+    if not stage_dir.is_dir():
+        return None
+
+    image_stem = sanitize_name(image_path.stem)
+    prompt_stem = sanitize_name(prompt_path.stem)
+    current_prompt = read_prompt(prompt_path)
+
+    pattern = f"{image_stem}__{prompt_stem}__*.json"
+
+    for candidate in sorted(stage_dir.glob(pattern)):
+        if not result_json_is_complete(candidate):
+            continue
+
+        try:
+            with open(candidate, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        stored_prompt = data.get("prompt")
+        stored_image = data.get("image")
+
+        if stored_prompt != current_prompt:
+            continue
+
+        # Prefer an exact image-path match. As a small compatibility fallback,
+        # also accept the same resolved path if the stored path can be resolved.
+        same_image = False
+
+        if stored_image is not None:
+            try:
+                same_image = (
+                    Path(stored_image).expanduser().resolve()
+                    == Path(image_path).expanduser().resolve()
+                )
+            except (OSError, RuntimeError):
+                same_image = str(stored_image) == str(image_path)
+
+        if not same_image:
+            continue
+
+        return candidate
+
+    return None
+
+
 def resolve_images(image_arg):
     """
     --image may point to:
@@ -409,10 +480,14 @@ def build_output_paths(
         prompt_path.stem
     )
 
-    # Hash the full paths so identically named images/prompts
-    # from different subfolders cannot overwrite one another.
+    # Stable output identity:
+    # - keep the image path, because the image itself has not moved in this workflow
+    # - hash the PROMPT CONTENT instead of its absolute path, so moving a prompt
+    #   to another directory does not create a new result identity.
+    prompt_content = prompt_path.read_text(encoding="utf-8")
+
     suffix = short_hash(
-        f"{image_path}::{prompt_path}"
+        f"{image_path}::{prompt_content}"
     )
 
     filename = (
@@ -1135,13 +1210,19 @@ def process_image(
                 single_run=single_run,
             )
 
-            if (
-                not args.overwrite_existing
-                and result_json_is_complete(json_path)
-            ):
+            existing_json_path = None
+
+            if not args.overwrite_existing:
+                existing_json_path = find_existing_complete_result(
+                    expected_json_path=json_path,
+                    image_path=image_path,
+                    prompt_path=prompt_path,
+                )
+
+            if existing_json_path is not None:
                 print(
                     "[SKIP] Existing complete result: "
-                    f"{json_path}"
+                    f"{existing_json_path}"
                 )
                 continue
 
@@ -1457,7 +1538,7 @@ def main():
 
     parser.add_argument(
         "--prompt-file",
-        default='/home/chatziko/PycharmProjects/PythonProject/showo2_cmalign/CMAlign/api',
+        default='/home/chatziko/PycharmProjects/PythonProject/CMAlign/api',
         type=str,
         help=(
             "Path to one .txt prompt OR a folder containing "
@@ -1642,4 +1723,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    from fusion_version import run_fusion_version
+
+    run_fusion_version(
+        v1_main=main,
+        v2_module="inference_qwen3_showo2_deepstack",
+    )
