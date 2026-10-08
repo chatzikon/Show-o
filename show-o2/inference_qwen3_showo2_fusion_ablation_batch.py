@@ -68,28 +68,24 @@ ALPHAS = [
 
 
 DEFAULT_STAGE1_CHECKPOINT = (
-    "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/"
-    "showo2_qwen3_adapter_stage1/checkpoint_best.pt"
+    "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/showo2_qwen3_adapter_stage1_v2/checkpoint_best.pt"
 )
 
 DEFAULT_STAGE2_CHECKPOINT = (
-    "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/"
-    "showo2_qwen3_adapter_stage2_ucf/checkpoint_best.pt"
+    "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/showo2_qwen3_adapter_stage2_v2/checkpoint_best.pt"
 )
 
 DEFAULT_IMAGE = (
-    "/home/chatziko/PycharmProjects/PythonProject/"
-    "test_images_showo2/ucf1.png"
+    "/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split/images"
 )
 
 DEFAULT_PROMPT_FILE = (
-    "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/"
-    "prompts/mmu_prompt.txt"
+    "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api"
 )
 
 DEFAULT_OUTPUT = (
     "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/"
-    "results/showo_outputs"
+    "results/ablation_results"
 )
 
 MAX_NEW_TOKENS = 512

@@ -2279,7 +2279,7 @@ def parse_args():
         "--predictions",
         type=Path,
         #required=True,
-        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ablation_results/UCF_init',
+        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ablation_results/non_crime_deepstack',
         help="Prediction file or directory containing JSON/JSONL/CSV outputs.",
     )
     p.add_argument(
@@ -2295,7 +2295,7 @@ def parse_args():
         "--metrics",
         nargs="+",
         choices=("clip", "bert"),
-        default=["clip", "bert"],
+        default=["clip"],
         help=(
             "Metrics to run. Examples: '--metrics clip' for image-text score only, "
             "'--metrics bert' for BERTScore only, or '--metrics clip bert' for both."
@@ -2304,14 +2304,14 @@ def parse_args():
     p.add_argument(
         "--image-root",
         type=Path,
-        default='/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCF Image Dataset/UCF Image Dataset',
+        default='/home/chatziko/PycharmProjects/PythonProject/test_images_showo2',
         help="Optional root directory used to resolve image paths/basenames.",
     )
     p.add_argument(
         "--output-dir",
         type=Path,
         #required=True,
-        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/ucf_init',
+        default='/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/results/non_crime_deepstack',
     )
     p.add_argument(
         "--device",

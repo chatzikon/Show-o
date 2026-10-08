@@ -28,14 +28,14 @@ from train_qwen3_showo2_adapter import (
 # Change this to the directory where you extracted UCF-Crime images.
 # Subdirectories are fine: the dataset searches recursively.
 UCF_TRAIN_ROOT = "/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/train/images"
-UCF_VAL_ROOT   = "/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/test"
+UCF_VAL_ROOT   = "/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/validation"
 
 # Best checkpoint from DenseFusion Stage 1
 STAGE1_CHECKPOINT = (
     "/home/chatziko/PycharmProjects/PythonProject/Show-o/show-o2/showo2_qwen3_adapter_stage1/checkpoint_best.pt"
 )
 
-OUTPUT_DIR = "./showo2_qwen3_adapter_stage2_ucf"
+OUTPUT_DIR = "./showo2_qwen3_adapter_stage2_v2"
 
 # UCF is tiny, so use a smaller LR than Stage 1.
 LR_ADAPTER = 1e-5

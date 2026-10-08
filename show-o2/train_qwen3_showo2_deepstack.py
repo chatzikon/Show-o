@@ -17,24 +17,46 @@ from tqdm import tqdm
 # CONFIG — edit these settings directly
 # ============================================================
 
+# Used when running this file directly.
+# The stage-specific entry scripts override this through --stage.
 STAGE = 1
 
-
-
-OUTPUT_DIR = "./showo2_qwen3_adapter_stage1_v2"
-
-# None: start with pretrained Show-o/Qwen and random adapters.
-# Set a checkpoint path to initialize from previous training.
-INIT_CHECKPOINT = None
-
-BATCH_SIZE = 12
-EPOCHS = 10
-
-# None: use the stage-specific learning rate.
-LR = None
-
-DEEPSTACK_WEIGHT = 1.0
-
+STAGE_CONFIGS = {
+    1: {
+        "output": "./showo2_qwen3_adapter_stage1_v2",
+        "init_checkpoint": None,
+        "densefusion_json": base.DENSEFUSION_JSON,
+        "image_root": base.IMAGE_ROOT,
+        "train_root": None,
+        "val_root": None,
+        "epochs": 10,
+        "batch_size": 12,
+        "lr": 1e-4,
+        "deepstack_weight": 1.0,
+        "vae_path": base.WAN_VAE_PATH,
+    },
+    2: {
+        "output": "./showo2_qwen3_adapter_stage2_v2",
+        "init_checkpoint": (
+            "./showo2_qwen3_adapter_stage1_v2/checkpoint_best.pt"
+        ),
+        "densefusion_json": None,
+        "image_root": None,
+        "train_root": (
+            "/home/chatziko/PycharmProjects/PythonProject/"
+            "IDMVAE/archive/UCA_image_dataset/train/images"
+        ),
+        "val_root": (
+            "/home/chatziko/PycharmProjects/PythonProject/"
+            "IDMVAE/archive/UCA_image_dataset/validation"
+        ),
+        "epochs": 10,
+        "batch_size": 12,
+        "lr": 1e-5,
+        "deepstack_weight": 1.0,
+        "vae_path": base.WAN_VAE_PATH,
+    },
+}
 
 @torch.no_grad()
 def targets(images, visual, processor):
@@ -53,21 +75,42 @@ def targets(images, visual, processor):
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--stage", type=int, choices=[1, 2], default=STAGE)
-    p.add_argument("--output", default=OUTPUT_DIR)
-    p.add_argument("--init-checkpoint", default=INIT_CHECKPOINT,
-                   help="V1 warm start for stage 1; trained V2 for stage 2")
-    p.add_argument("--densefusion-json", default=base.DENSEFUSION_JSON)
-    p.add_argument("--image-root", default=base.IMAGE_ROOT)
+    # Read the selected stage first.
+    stage_parser = argparse.ArgumentParser(add_help=False)
+    stage_parser.add_argument(
+        "--stage",
+        type=int,
+        choices=[1, 2],
+        default=STAGE,
+    )
+    stage_args, _ = stage_parser.parse_known_args()
+
+    # Build the full parser using that stage's defaults.
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        parents=[stage_parser],
+    )
+
+    p.add_argument("--output")
+    p.add_argument("--init-checkpoint")
+    p.add_argument("--densefusion-json")
+    p.add_argument("--image-root")
     p.add_argument("--train-root")
     p.add_argument("--val-root")
-    p.add_argument("--vae-path", default=base.WAN_VAE_PATH)
-    p.add_argument("--epochs", type=int, default=EPOCHS)
-    p.add_argument("--batch-size", type=int, default=BATCH_SIZE)
-    p.add_argument("--lr", type=float, default=LR)
-    p.add_argument("--deepstack-weight", type=float, default=DEEPSTACK_WEIGHT)
+    p.add_argument("--vae-path")
+    p.add_argument("--epochs", type=int)
+    p.add_argument("--batch-size", type=int)
+    p.add_argument("--lr", type=float)
+    p.add_argument("--deepstack-weight", type=float)
+
+    p.set_defaults(**STAGE_CONFIGS[stage_args.stage])
     args = p.parse_args()
+
+    dataset_name = "DenseFusion" if args.stage == 1 else "UCF"
+    print(f"Fusion V2 | Stage {args.stage} | {dataset_name}")
+    print(json.dumps(vars(args), indent=2), flush=True)
+
+
     if args.epochs < 1 or args.batch_size < 1 or not 0 < args.deepstack_weight < float("inf"):
         p.error("epochs, batch-size and deepstack-weight must be positive")
     random.seed(base.SEED)
