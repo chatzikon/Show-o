@@ -42,9 +42,9 @@ from qwen3_showo2_deepstack import (
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
-STAGES = ["stage1", "stage2"]
+#STAGES = ["stage1", "stage2"]
 # Other options:
-# STAGES = ["stage2"]
+STAGES = ["stage1"]
 # STAGES = ["pre_stage1", "stage1", "stage2"]
 
 STAGE1_CHECKPOINT = (
@@ -56,16 +56,18 @@ STAGE2_CHECKPOINT = (
 )
 
 IMAGE_PATH = (
-     "/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split/images"
+     #"/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split/images"
+    "/home/chatziko/PycharmProjects/PythonProject/test_images_showo2"
 )
 
 PROMPT_PATH = (
-     "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api"
+     "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api/prompt_init.txt"
 )
 
 OUTPUT_PATH = SCRIPT_DIR / "results/ablation_results"
 
-ALPHAS = [i / 10 for i in range(11)]
+#ALPHAS = [i / 10 for i in range(11)]
+ALPHAS = [0.5]
 MAX_NEW_TOKENS = 512
 OVERWRITE_EXISTING = False
 USE_RAG = False
@@ -78,8 +80,7 @@ SEED = 42
 # Increment if you later change inference behavior and want fresh results.
 RUN_SCHEMA = 1
 
-USE_RAG = False
-RAG_TOP_K = 5
+
 RAG_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
@@ -192,6 +193,24 @@ def save_v2_result(job, image_path, checkpoint_path, norms, results):
             "\nFusion version: 2\n"
             "Fusion scope: final visual features and all DeepStack levels\n"
         )
+
+    if any("rag_observation" in r for r in results):
+        with job["txt_path"].open("a", encoding="utf-8") as handle:
+            handle.write("\n\n")
+            handle.write("=" * 60 + "\n")
+            handle.write("PURE IMAGE DESCRIPTIONS (FIRST PASS)\n")
+            handle.write("=" * 60 + "\n")
+
+            for result in results:
+                if "rag_observation" not in result:
+                    continue
+
+                handle.write(
+                    f"\nALPHA: {result['alpha_qwen']:.2f}\n"
+                )
+                handle.write("-" * 60 + "\n")
+                handle.write(result["rag_observation"].strip())
+                handle.write("\n")
 
 
 # ============================================================
@@ -409,7 +428,18 @@ def process_image(image_path, jobs, checkpoints, args):
                 } if args.use_rag else {}),
             })
 
-            print(f"\nalpha={alpha:.1f}\n{text}", flush=True)
+            print(f"\n{'=' * 60}")
+            print(f"ALPHA: {alpha:.1f}")
+            print("=" * 60)
+
+            if args.use_rag:
+                print("\n[1] PURE IMAGE DESCRIPTION")
+                print("-" * 60)
+                print(rag_observation)
+
+            print("\n[2] INVESTIGATIVE ANALYSIS")
+            print("-" * 60)
+            print(text, flush=True)
             del ids, generated, final, fused_deep
 
         save_v2_result(

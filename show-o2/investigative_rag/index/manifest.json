@@ -12,9 +12,25 @@
     "VR-009",
     "VR-010",
     "VR-011",
-    "VR-012"
+    "VR-012",
+    "VR-013",
+    "VR-014",
+    "VR-015",
+    "VR-016",
+    "VR-017",
+    "VR-018",
+    "VR-019",
+    "VR-020",
+    "VR-021",
+    "VR-022",
+    "VR-023",
+    "VR-024",
+    "VR-025",
+    "VR-026",
+    "VR-027",
+    "VR-028"
   ],
   "dimension": 384,
-  "corpus_sha256": "39c3322e0e115ba19be7851ad506bf2ad028a839eb812f44061e389fcd931a17",
+  "corpus_sha256": "17322bcede5b28bb83b9c2be49f4da8d57fe9cdb722b430e0c819e84677f4371",
   "similarity": "cosine_using_normalized_inner_product"
 }

@@ -86,5 +86,53 @@
     "organization": "eSafety Commissioner",
     "verification_status": "verified_page_content_2026-11-19",
     "verification_note": "Source supports general guidance; case-specific visual-risk mapping is analyst interpretation, not source-authored diagnosis."
+  },
+  {
+    "source_id": "ES-FAMILY-SAFE",
+    "title": "Keeping your family safe",
+    "url": "https://www.esafety.gov.au/key-topics/domestic-family-violence/keeping-your-family-safe",
+    "organization": "eSafety Commissioner",
+    "verification_status": "reviewed_page_content_2026-11-23",
+    "verification_note": "Direct guidance that street signs, landmarks, school/club uniforms and home details in photographs/backgrounds can disclose location, in family-violence safety context."
+  },
+  {
+    "source_id": "ASPCA-REPORT",
+    "title": "Recognizing and Reporting Animal Abuse and Neglect",
+    "url": "https://www.aspca.org/investigations-rescue/recognizing-and-reporting-animal-abuse-and-neglect",
+    "organization": "ASPCA",
+    "verification_status": "reviewed_page_content_2026-11-23",
+    "verification_note": "Discusses factual observations and photographic evidence as material when reporting suspected animal neglect; not a photo-only diagnostic criteria."
+  },
+  {
+    "source_id": "ASPCA-HOARD",
+    "title": "Animal Hoarding",
+    "url": "https://www.aspca.org/helping-people-pets/animal-hoarding",
+    "organization": "ASPCA",
+    "verification_status": "reviewed_page_content_2026-11-23",
+    "verification_note": "Discusses welfare conditions including sanitation, shelter and veterinary care; multiple animals alone does not establish hoarding."
+  },
+  {
+    "source_id": "OSHA-VISUAL",
+    "title": "Hazard Identification Training Tool: Visual Hazard Inspection",
+    "url": "https://www.osha.gov/hazfinder/text-version/visual-inspection",
+    "organization": "US OSHA",
+    "verification_status": "reviewed_page_content_2026-11-23",
+    "verification_note": "Provides examples of visible workplace hazards including exposed wiring, frayed cords and missing safeguards."
+  },
+  {
+    "source_id": "NPS-WILDLIFE",
+    "title": "How to View and Photograph Wildlife",
+    "url": "https://www.nps.gov/grca/planyourvisit/wildlifephotography.htm",
+    "organization": "US National Park Service",
+    "verification_status": "reviewed_page_content_2026-11-23",
+    "verification_note": "Recommends safe distance from wildlife and discourages disturbance; not a legal finding about any image."
+  },
+  {
+    "source_id": "INTERPOL-WILDLIFE",
+    "title": "Wildlife crime",
+    "url": "https://www.interpol.int/Crimes/Environmental-crime/Wildlife-crime",
+    "organization": "INTERPOL",
+    "verification_status": "candidate_not_reviewed_2026-11-23",
+    "verification_note": "General wildlife crime taxonomy only, not proof of illegality of animal possession in a photograph."
   }
 ]
