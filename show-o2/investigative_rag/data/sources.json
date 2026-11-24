@@ -120,19 +120,35 @@
     "verification_note": "Provides examples of visible workplace hazards including exposed wiring, frayed cords and missing safeguards."
   },
   {
-    "source_id": "NPS-WILDLIFE",
-    "title": "How to View and Photograph Wildlife",
-    "url": "https://www.nps.gov/grca/planyourvisit/wildlifephotography.htm",
-    "organization": "US National Park Service",
-    "verification_status": "reviewed_page_content_2026-11-23",
-    "verification_note": "Recommends safe distance from wildlife and discourages disturbance; not a legal finding about any image."
+    "source_id": "ES-LOCATION",
+    "title": "Location sharing",
+    "url": "https://www.esafety.gov.au/key-topics/online-tools-and-features/location-sharing",
+    "organization": "Australian eSafety Commissioner",
+    "verification_status": "reviewed_public_page_2026-11-23",
+    "verification_note": "Discusses information revealing where people have been or often go; not proof of current location from an image."
   },
   {
-    "source_id": "INTERPOL-WILDLIFE",
-    "title": "Wildlife crime",
-    "url": "https://www.interpol.int/Crimes/Environmental-crime/Wildlife-crime",
-    "organization": "INTERPOL",
-    "verification_status": "candidate_not_reviewed_2026-11-23",
-    "verification_note": "General wildlife crime taxonomy only, not proof of illegality of animal possession in a photograph."
+    "source_id": "UK-PREMISES",
+    "title": "Terrorism (Protection of Premises) Act 2025: statutory guidance",
+    "url": "https://www.gov.uk/government/publications/the-terrorism-protection-of-premises-act-2025/terrorism-protection-of-premises-act-2025-statutory-guidance",
+    "organization": "UK Government",
+    "verification_status": "contextual_reference_2026-11-23",
+    "verification_note": "Concerns qualifying premises, not routine residential exterior photographs. Does not justify a burglary/security-vulnerability claim."
+  },
+  {
+    "source_id": "ES-FAMILY-LOCATION",
+    "title": "Keeping your family safe",
+    "url": "https://www.esafety.gov.au/key-topics/domestic-family-violence/keeping-your-family-safe",
+    "organization": "Australian eSafety Commissioner",
+    "verification_status": "page_checked_2026-11-23",
+    "verification_note": "Explicitly mentions details in photograph backgrounds, including home details, that may make location easier to identify. Does not claim security vulnerabilities."
+  },
+  {
+    "source_id": "UK-NCSC-CAMERA",
+    "title": "Smart security cameras: Using them safely in your home",
+    "url": "https://www.ncsc.gov.uk/guidance/smart-security-cameras-using-them-safely-in-your-home",
+    "organization": "UK National Cyber Security Centre",
+    "verification_status": "page_checked_2026-11-23",
+    "verification_note": "Smart camera device context and possible risks of compromised configurations. A photo showing a camera does not establish compromise or weakness."
   }
 ]

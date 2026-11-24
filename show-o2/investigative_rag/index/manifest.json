@@ -24,13 +24,9 @@
     "VR-021",
     "VR-022",
     "VR-023",
-    "VR-024",
-    "VR-025",
-    "VR-026",
-    "VR-027",
-    "VR-028"
+    "VR-024"
   ],
   "dimension": 384,
-  "corpus_sha256": "17322bcede5b28bb83b9c2be49f4da8d57fe9cdb722b430e0c819e84677f4371",
+  "corpus_sha256": "b7e562d4c534a783d93df29e8c1c52be3ce64984cecf8f0006145ed32235f6ad",
   "similarity": "cosine_using_normalized_inner_product"
 }

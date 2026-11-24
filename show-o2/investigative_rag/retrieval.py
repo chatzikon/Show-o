@@ -86,18 +86,54 @@ class Retriever:
         return hits
 
 
-def format_context(hits, root=ROOT, max_chars=6500):
-    sources = {s["source_id"]: s for s in json.loads((Path(root) / "data" / "sources.json").read_text())}
+def format_context(hits, root=ROOT, max_chars=12000):
+    """Render source-linked knowledge and evidence constraints for the final prompt.
+
+    Source URLs are lookup metadata, not freshly read web content. Entries are
+    included whole; later entries may be omitted to respect the context budget.
+    """
+    source_rows = json.loads(
+        (Path(root) / "data/sources.json").read_text(encoding="utf-8")
+    )
+    sources = {s["source_id"]: s for s in source_rows}
+
+    def as_lines(value):
+        if isinstance(value, list):
+            return "; ".join(
+                json.dumps(v, ensure_ascii=False) if isinstance(v, dict) else str(v)
+                for v in value
+            ) or "none"
+        return str(value) if value is not None else "none"
+
     blocks = []
+    length = 0
     for hit in hits:
-        record = hit["entry"]
-        refs = "; ".join(f"{sid}: {sources[sid]['url']}" for sid in record["source_ids"]) or "No source (negative control)"
-        blocks.append(
-            f"ID: {record['id']}\nVisible cues: {', '.join(record['observation_cues'])}\n"
-            f"Supported background: {record['source_supported_fact']}\n"
-            f"Conditional hypothesis: {record['potential_misuse_hypothesis']}\n"
-            f"Alternatives: {', '.join(record['alternative_explanations'])}\n"
-            f"Verification required: {record['verification_needed']}\n"
-            f"Sources: {refs}\nATT&CK: {', '.join(a['technique_id'] for a in record['attack_mappings']) or 'none'}"
-        )
-    return "\n\n".join(blocks)[:max_chars]
+        row = hit["entry"]
+        refs = "; ".join(
+            f"{sid} ({sources[sid]['title']}): {sources[sid]['url']}"
+            for sid in row.get("source_ids", [])
+        ) or "No external source (negative control)"
+        attack_ids = ", ".join(
+            x["technique_id"] for x in row.get("attack_mappings", [])
+        ) or "none"
+        lines = [
+            f"Knowledge ID: {row['id']} — {row['title']}",
+            f"Visible cues: {as_lines(row.get('observation_cues', []))}",
+            f"Required visual evidence: {as_lines(row.get('visual_evidence_required', []))}",
+            f"Supported background: {row['source_supported_fact']}",
+            f"Conditional hypothesis: {row['potential_misuse_hypothesis']}",
+            f"Risk preconditions: {as_lines(row.get('risk_preconditions', []))}",
+            f"Alternative explanations: {as_lines(row.get('alternative_explanations', []))}",
+            f"Unsupported inferences: {as_lines(row.get('not_supported_inferences', []))}",
+            f"Verification required: {row['verification_needed']}",
+            f"Recommended output scope: {row.get('recommended_output_scope', 'none')}",
+            f"Sources: {refs}",
+            f"ATT&CK contextual mapping, not evidence: {attack_ids}",
+        ]
+        block = "\n".join(lines)
+        extra = len(block) + (2 if blocks else 0)
+        if length + extra > max_chars:
+            break
+        blocks.append(block)
+        length += extra
+    return "\n\n".join(blocks)

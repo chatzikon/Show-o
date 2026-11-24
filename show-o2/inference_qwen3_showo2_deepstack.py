@@ -61,7 +61,7 @@ IMAGE_PATH = (
 )
 
 PROMPT_PATH = (
-     "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api/prompt_init.txt"
+     "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api/prompt_init_risk.txt"
 )
 
 OUTPUT_PATH = SCRIPT_DIR / "results/ablation_results"
