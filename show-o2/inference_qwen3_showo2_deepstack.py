@@ -27,6 +27,14 @@ from inference_qwen3_showo2_fusion_ablation_batch import (
 # RAG_INTEGRATION_V1: retrieval is imported lazily only when enabled.
 from investigative_rag.inference_support import OBSERVATION_PROMPT, final_prompt
 
+from investigative_rag.structured_output import (
+    OUTPUT_FORMAT_VERSION,
+    structured_prompt,
+    parse_and_validate,
+    render_report,
+    StructuredOutputError,
+)
+
 from qwen3_showo2_deepstack import (
     DeepStackAdapter,
     load_adapter,
@@ -42,9 +50,9 @@ from qwen3_showo2_deepstack import (
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
-STAGES = ["stage1", "stage2"]
+#STAGES = ["stage1", "stage2"]
 # Other options:
-# STAGES = ["stage2"]
+STAGES = ["stage1"]
 # STAGES = ["pre_stage1", "stage1", "stage2"]
 
 STAGE1_CHECKPOINT = (
@@ -56,30 +64,31 @@ STAGE2_CHECKPOINT = (
 )
 
 IMAGE_PATH = (
-     "/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split/images"
+     #"/home/chatziko/PycharmProjects/PythonProject/IDMVAE/archive/UCA_image_dataset/one_frame_per_video_split/images"
+    "/home/chatziko/PycharmProjects/PythonProject/test_images_showo2"
 )
 
 PROMPT_PATH = (
-     "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api"
+     "/home/chatziko/PycharmProjects/PythonProject/CMAlign/api/prompt_init_risk.txt"
 )
 
 OUTPUT_PATH = SCRIPT_DIR / "results/ablation_results"
 
-ALPHAS = [i / 10 for i in range(11)]
+#ALPHAS = [i / 10 for i in range(11)]
+ALPHAS = [0.5]
 MAX_NEW_TOKENS = 512
 OVERWRITE_EXISTING = False
-USE_RAG = False
-RAG_TOP_K = 5
+USE_RAG = True
+RAG_TOP_K = 8
 RAG_MIN_SCORE = None  # Do not use an uncalibrated similarity cutoff.
 RAG_DIR = SCRIPT_DIR / "investigative_rag"
-RAG_OBSERVATION_MAX_TOKENS = 180
+RAG_OBSERVATION_MAX_TOKENS = 300
 SEED = 42
 
 # Increment if you later change inference behavior and want fresh results.
 RUN_SCHEMA = 1
 
-USE_RAG = False
-RAG_TOP_K = 5
+
 RAG_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
@@ -192,6 +201,8 @@ def save_v2_result(job, image_path, checkpoint_path, norms, results):
             "\nFusion version: 2\n"
             "Fusion scope: final visual features and all DeepStack levels\n"
         )
+
+
 
 
 # ============================================================
@@ -370,7 +381,10 @@ def process_image(image_path, jobs, checkpoints, args):
                     args.rag_retriever, rag_observation,
                     top_k=args.rag_top_k, min_score=args.rag_min_score,
                 )
-                effective_prompt = final_prompt(job["prompt"], context)
+                effective_prompt = structured_prompt(
+                    final_prompt(job["prompt"], context),
+                    retrieved_knowledge,
+                )
                 effective_inputs = move_inputs_to_device(
                     prepare_qwen_inputs(processor, image, effective_prompt),
                     base.DEVICE,
@@ -381,7 +395,10 @@ def process_image(image_path, jobs, checkpoints, args):
             with patched_image_features(qwen, final, fused_deep):
                 ids = qwen.generate(
                     **effective_inputs,
-                    max_new_tokens=args.max_new_tokens,
+                    max_new_tokens=(
+                        args.rag_structured_max_new_tokens
+                        if args.use_rag else args.max_new_tokens
+                    ),
                     do_sample=False,
                     use_cache=True,
                 )
@@ -393,6 +410,31 @@ def process_image(image_path, jobs, checkpoints, args):
                 clean_up_tokenization_spaces=False,
             )[0]
 
+
+
+            validated_findings = None
+            structured_warnings = []
+            structured_error = None
+            raw_model_output = None
+
+            if args.use_rag:
+                raw_model_output = text
+
+                try:
+                    validated_findings, structured_warnings = parse_and_validate(
+                        raw_model_output, retrieved_knowledge
+                    )
+                except StructuredOutputError as exc:
+                    structured_error = str(exc)
+                    validated_findings = []
+
+                text = render_report(
+                    rag_observation,
+                    validated_findings,
+                    error=structured_error,
+                    raw_output=raw_model_output,
+                )
+
             results.append({
                 "alpha_qwen": alpha,
                 "beta_showo2": 1 - alpha,
@@ -400,16 +442,29 @@ def process_image(image_path, jobs, checkpoints, args):
                 "showo2_norm": showo_norm,
                 "output": text,
                 **({
-                    "rag_enabled": True,
-                    "rag_observation": rag_observation,
-                    "retrieved_knowledge": retrieved_knowledge,
-                    "rag_effective_prompt_sha256": hashlib.sha256(
-                        effective_prompt.encode("utf-8")
-                    ).hexdigest(),
-                } if args.use_rag else {}),
+                       "rag_enabled": True,
+                       "rag_observation": rag_observation,
+                       "structured_output_version": OUTPUT_FORMAT_VERSION,
+                       "analysis_json": {
+                           "image_description": rag_observation,
+                           "investigative_findings": validated_findings,
+                       } if structured_error is None else None,
+                       "structured_validation_error": structured_error,
+                       "structured_validation_warnings": structured_warnings,
+                       "raw_model_output": raw_model_output,
+                       "retrieved_knowledge": retrieved_knowledge,
+                       "rag_effective_prompt_sha256": hashlib.sha256(
+                           effective_prompt.encode("utf-8")
+                       ).hexdigest(),
+                   } if args.use_rag else {}),
             })
 
-            print(f"\nalpha={alpha:.1f}\n{text}", flush=True)
+            print(f"\n{'=' * 60}")
+            print(f"ALPHA: {alpha:.1f}")
+            print("=" * 60)
+
+            print(text, flush=True)
+
             del ids, generated, final, fused_deep
 
         save_v2_result(
@@ -466,6 +521,11 @@ def main():
         "--overwrite-existing",
         action="store_true",
         default=OVERWRITE_EXISTING,
+    )
+    parser.add_argument(
+        "--rag-structured-max-new-tokens",
+        type=int,
+        default=1024,
     )
 
     args = parser.parse_args()
@@ -578,6 +638,8 @@ def main():
         **({"rag": args.rag_provenance,
             "rag_min_score": args.rag_min_score,
             "rag_observation_max_tokens": args.rag_observation_max_tokens,
+            "rag_output_format": OUTPUT_FORMAT_VERSION,
+            "rag_structured_max_new_tokens": args.rag_structured_max_new_tokens,
             "rag_observation_prompt": OBSERVATION_PROMPT}
            if args.use_rag else {}),
     }
