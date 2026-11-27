@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
+
+
 def load_rows(root=ROOT):
     path = Path(root) / "data" / "knowledge.jsonl"
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -83,6 +85,8 @@ class Retriever:
             hits.append({"score": float(score), "entry": row})
             if len(hits) == top_k:
                 break
+
+
         return hits
 
 
