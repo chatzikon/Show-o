@@ -66,6 +66,19 @@ def structured_prompt(existing_prompt, retrieved_records):
         + "For example, ordinary boxes do not imply trafficking, "
         + "and a normal room does not imply concealment. "
         + "Avoid generic crime-related speculation.\n"
+        + "10. Ordinary photographs are not evidence of wrongdoing. "
+        + "A normal portrait does not establish impersonation, identity theft, "
+        + "extortion, or unauthorized use. Ordinary landscapes do not establish "
+        + "criminal activity or a crime location. The presence of domestic animals "
+        + "does not establish animal abuse, illegal trade, or criminal intent.\n"
+        + "11. Focus on potential consequences of unauthorized photograph "
+        + "sharing or reuse, not general scene-condition assessment. "
+        + "Differentiate information visibly exposed in the photograph from "
+        + "hypothetical misuse that requires independent evidence.\n"
+        + "12. Do not generate a finding solely to say nothing suspicious is "
+        + "visible. Explain only specific, image-supported privacy, location, "
+        + "identity or security information exposure from relevant retrieved VRs. "
+        + "If no substantive retrieved VR applies, return an empty findings list.\n"
     )
 
 

@@ -1,0 +1,34 @@
+{
+  "database_version": "0.5.0",
+  "previous_entry_count": 24,
+  "new_entry_count": 13,
+  "old_to_new_ids": {
+    "VR-001": "VR-001",
+    "VR-002": "VR-002",
+    "VR-003": "VR-003",
+    "VR-004": "VR-004",
+    "VR-005": "VR-005",
+    "VR-006": "VR-006",
+    "VR-011": "VR-006",
+    "VR-024": "VR-006",
+    "VR-007": "VR-007",
+    "VR-018": "VR-007",
+    "VR-008": "VR-008",
+    "VR-009": "VR-009",
+    "VR-010": "VR-010",
+    "VR-013": "VR-010",
+    "VR-014": "VR-011",
+    "VR-017": "VR-011",
+    "VR-015": "VR-012",
+    "VR-016": "VR-013"
+  },
+  "removed_ids": [
+    "VR-012",
+    "VR-019",
+    "VR-020",
+    "VR-021",
+    "VR-022",
+    "VR-023"
+  ],
+  "note": "Historical IDs map to conceptual successors, not always one-to-one. Inspect original backup for full wording."
+}
